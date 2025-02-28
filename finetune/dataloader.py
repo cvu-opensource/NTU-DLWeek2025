@@ -48,7 +48,7 @@ class BiasDataset(Dataset):
                         max_length=self.max_length,
                         return_tensors='pt'
                     )
-                    labels = {'bias_score': data['score']}
+                    labels = {'bias_score': data['score'] / 100}
                     self.data.append({
                         'input_ids': encoding['input_ids'].squeeze(0),
                         'attention_mask': encoding['attention_mask'].squeeze(0),

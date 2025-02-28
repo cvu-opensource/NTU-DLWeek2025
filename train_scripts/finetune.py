@@ -8,7 +8,7 @@ from transformers import DataCollatorWithPadding
 from transformers import pipeline
 from transformers import Trainer
 from transformers import TrainingArguments
-from peft import get_peft_model
+from peft import get_peft_modelx
 from peft import LoraConfig
 from peft import TaskType
 
@@ -44,10 +44,12 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
     '''
     Fine-tuning function with PEFT.
     '''
+    # Initialising tokeniser, model and collator
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
     model.config.pad_token_id = model.config.eos_token_id
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    
+    model.to(device)
+
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token  # Use EOS token as padding
     tokenizer.pad_token_id = tokenizer.eos_token_id  # Ensure ID is correctly set
@@ -64,13 +66,6 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
     eval_dataloader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn)
 
-    for batch in train_dataloader:
-        print(batch)
-
-    # Initialising tokeniser and model
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
-    model.to(device)
-
     # Apply LoRA using PEFT
     lora_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
@@ -82,7 +77,7 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
     model = get_peft_model(model, lora_config)
     model.config.pad_token_id = model.config.eos_token_id
 
-    # Defining training args
+    # Defining training configs
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,

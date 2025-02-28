@@ -67,6 +67,7 @@ class BiasDataset(Dataset):
             with open(self.root) as file:
                 self.data = json.load(file)
         else:
+            print(f'Path {self.root} not found')
             self.data = BiasDataset.create_toy_dataset()
 
     def __len__(self):

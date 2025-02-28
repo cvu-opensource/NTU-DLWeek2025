@@ -1,52 +1,35 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer
-from torch.utils.data import DataLoader
-from transformers import AutoModelForSequenceClassification
+from torch.utils.data import DataLoader, random_split
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
 from transformers import get_scheduler
 from torch.optim import AdamW   
 import torch
 from tqdm.auto import tqdm
-# from datasets import load_metric
+from llm2vec.models import LlamaBiModel
 
 from dataloader import BiasDataset, custom_collate_fn
 
 
-def pretrain_model(data_dir, model_name='Llama-encoder-1.0B'):
+def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./finetune/finetune_results', num_train_epochs=3, batch_size=2):
     '''
     Pretraining.
     '''
+    model = LlamaBiModel.from_pretrained(model_name)
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
+    print('model loaded')
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     # Defining dataset split and dataloaders
     dataset = BiasDataset(data_dir, tokenizer, max_length=512)
-    
-    eval_len = int(max(1, (1 - split_ratio) * len(dataset)))
-    train_data, eval_data = random_split(dataset.data, [len(dataset.data) - eval_len, eval_len], generator=torch.Generator())
+    # TODO: idk what to do here lol, underneath is the original code
+    # train_data, eval_data = random_split(dataset.data, [len(dataset.data) - eval_len, eval_len], generator=torch.Generator())
+    train_data, _ = random_split(dataset.data, [len(dataset.data) - 2, 2], generator=torch.Generator())
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
-    eval_dataloader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn)
 
-    # small_train_dataset = dataset["train"].shuffle(seed=42).select(range(1000))
-    # small_eval_dataset = dataset["test"].shuffle(seed=42).select(range(1000))
-
-    # tokenizer.pad_token = tokenizer.eos_token
-    # def tokenize_function(examples):
-    #     return tokenizer(examples["text"], padding="max_length", truncation=True)
-
-    # tokenized_train = small_train_dataset.map(tokenize_function, batched=True)
-
-    # tokenized_train = tokenized_train.remove_columns(["text"])
-    # tokenized_train = tokenized_train.rename_column("label", "labels")
-
-    # train_dataloader = DataLoader(tokenized_train, shuffle=True, batch_size=1)
-
-
-    # Load model and train configs
-    model = AutoModelForSequenceClassification.from_pretrained(model, num_labels=5)
-    model.config.pad_token_id = model.config.eos_token_id
     optimizer = AdamW(model.parameters(), lr=5e-5)
     num_epochs = 3
     num_training_steps = num_epochs * len(train_dataloader)
@@ -57,30 +40,35 @@ def pretrain_model(data_dir, model_name='Llama-encoder-1.0B'):
     progress_bar = tqdm(range(num_training_steps))
 
     model.train()
-    # model.model.gradient_checkpointing = True
 
-    # Iterating epochs
-    for epoch in range(num_epochs):
-        for batch in train_dataloader:
+    # Defining training args
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        num_train_epochs=num_train_epochs,
+        per_device_train_batch_size=batch_size,
+        save_steps=500,
+        save_total_limit=2,
+        logging_dir=f'{output_dir}/logs',
+        logging_steps=100,
+        evaluation_strategy="epoch",
+        save_strategy="epoch",
+        eval_steps=None,
+    )
+    
+    torch.cuda.empty_cache()
 
-            preprocess_batch = {}
-            for k, v in batch.items():
-                if isinstance(v, torch.Tensor):
-                    preprocess_batch[k] = v.to(device)
-                elif isinstance(v, list):
-                    preprocess_batch[k] = torch.stack(v, dim=1).to(device)
+    # Defining trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataloader.dataset,
+        tokenizer=tokenizer,
+    )
 
-            for k, v in preprocess_batch.items():
-                print(k,v.shape)
-            # batch = {k: v.to(device) for k, v in batch.items()}
-            outputs = model(**preprocess_batch)
-            loss = outputs.loss
-            loss.backward()
-
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
-            progress_bar.update(1)
+    trainer.train()
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    print("Pretraining complete. Model saved at", output_dir)
 
 
 if __name__=='__main__':

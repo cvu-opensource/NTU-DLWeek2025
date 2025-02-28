@@ -103,7 +103,7 @@ class BiasDataset(Dataset):
         label_tensor = torch.tensor(list(labels.values()), dtype=torch.float32)
         
         return {
-            'input_ids': encoding['input_ids'].squeeze(0),
-            'attention_mask': encoding['attention_mask'].squeeze(0),
-            'labels': label_tensor
+            'input_ids': encoding['input_ids'].squeeze(0),  # ensure this is 2-dim
+            'attention_mask': encoding['attention_mask'].squeeze(0),  # 2-dim also
+            'labels': label_tensor  # 1-dim tensor (also just 1 value ig)
         }

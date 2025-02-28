@@ -1,19 +1,22 @@
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
+from transformers.models.llama import LlamaModel
 from peft import get_peft_model, LoraConfig, TaskType
 
 from dataloader import BiasDataset, custom_collate_fn
+from llm2vec.models import LlamaBiModel
 
-
-def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./finetune/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
+def finetune_model(data_dir, path='Llama-encoder-1.0B', output_dir='./finetune/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
     '''
-    Fine-tuning function with PEFT
+    Fine-tuning function with PEFT.
     '''
+    model = AutoModelForSequenceClassification.from_pretrained(path, num_labels=1)
+    model.config.pad_token_id = model.config.eos_token_id
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
     
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(path)
     data_collator = DataCollatorWithPadding(tokenizer, padding=True, return_tensors='pt')
 
     # Defining dataset split and dataloaders
@@ -25,19 +28,17 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
     eval_dataloader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn)
 
-    # Initialising tokeniser and model
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
-    
     # Apply LoRA using PEFT
     lora_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
         r=8,
         lora_alpha=32,
         lora_dropout=0.1,
-        target_modules=["query", "value"]
+        # target_modules=["query", "value"]
     )
     model = get_peft_model(model, lora_config)
     model.to(device)  # MODEL TO GPU/CUDA
+    model.print_trainable_parameters()
 
     # Defining training args
     training_args = TrainingArguments(

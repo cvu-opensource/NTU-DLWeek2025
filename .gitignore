@@ -1,1 +1,4 @@
-*.json
+political_news_rss.json
+scraped_news.json
+
+venv

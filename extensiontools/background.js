@@ -22,14 +22,42 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "scrapeSelection" && info.selectionText) {
         console.log("Selected text scraped (background service worker):", info.selectionText);
 
-        // Execute script in tab to get the article title
         chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: (selectedText) => {
-                let title = document.title || "Untitled Article";
+                let title = document.querySelector('meta[property="og:title"]')?.content || document.title || "Untitled Article";
+
+                // Extract website name dynamically (source)
+                let source = document.querySelector('meta[property="og:site_name"]')?.content || 
+                             document.querySelector('meta[name="application-name"]')?.content ||
+                             document.querySelector('meta[property="og:brand"]')?.content ||
+                             window.location.hostname.replace("www.", "") || 
+                             "None";
+
+                // Author Extraction
+                let author = document.querySelector('meta[name="author"]')?.content ||
+                             document.querySelector('meta[property="article:author"]')?.content ||
+                             document.querySelector('meta[name="byline"]')?.content ||
+                             document.querySelector('.author, .byline, .post-author, .writer, .entry-author, .article__author-name')?.innerText ||
+                             document.querySelector('a[rel="author"]')?.innerText ||
+                             "None";
+
+                // Published Date Extraction
+                let publishedDate = document.querySelector('meta[property="article:published_time"]')?.content || 
+                                    document.querySelector('meta[name="publish-date"]')?.content || 
+                                    document.querySelector('meta[name="date"]')?.content ||
+                                    document.querySelector('meta[name="dc.date"]')?.content ||
+                                    document.querySelector('meta[itemprop="datePublished"]')?.content ||
+                                    document.querySelector('time')?.getAttribute("datetime") || 
+                                    document.querySelector('.pubdate, .date-posted, .post-date, .entry-date, .article-date')?.innerText ||
+                                    "None";
+
                 let jsonData = {
-                    title: title,
-                    text: selectedText
+                    title: title.trim() || "None",
+                    text: selectedText.trim() || "None",
+                    source: source.trim() || "None",
+                    author: author.trim() || "None",
+                    published_date: publishedDate.trim() || "None"
                 };
 
                 console.log("Selected Text Scraped (JSON):", JSON.stringify(jsonData, null, 2));

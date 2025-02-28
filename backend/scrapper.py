@@ -2,7 +2,55 @@ import feedparser
 import json
 import traceback
 
-POLITICAL_RSS_FEEDS = {  
+class RSSscraper:
+    """
+    This script scrapes the RSS of articles around the globe for political keywords and outputs metadata of these articles in a json file
+    """
+    def __init__(self, rss_feeds, keywords, output_file="political_news_rss.json"):
+        self.rss_feeds = rss_feeds
+        self.keywords = keywords
+        self.output_file = output_file
+        self.articles = []
+
+    def fetch_articles(self):
+        count = 0
+        for source, url in self.rss_feeds.items():
+            try:
+                print(f"Fetching RSS feed from: {url}")
+                feed = feedparser.parse(url)
+
+                if not feed.entries:
+                    print(f"Warning: No entries found for {source}. Skipping.")
+                    continue
+
+                for entry in feed.entries[:10]:  # Limit to 10 articles per source
+                    try:
+                        title = entry.get("title", "No title").strip()
+                        link = entry.get("link", "#")
+                        summary = entry.get("summary", "No summary available").strip()
+
+                        if any(keyword in title.lower() or keyword in summary.lower() for keyword in self.keywords):
+                            self.articles.append({"source": source, "title": title, "link": link, "summary": summary})
+                            count += 1
+                            print(f"Collected {count} articles so far...")
+                    except Exception as e:
+                        print(f"Error processing an article from {source}: {e}")
+                        traceback.print_exc()
+            except Exception as e:
+                print(f"Error fetching/parsing RSS feed from {source}: {e}")
+                traceback.print_exc()
+
+    def save_articles(self):
+        try:
+            with open(self.output_file, "w", encoding="utf-8") as f:
+                json.dump(self.articles, f, ensure_ascii=False, indent=4)
+            print(f"Scraped {len(self.articles)} political news articles and saved to {self.output_file}.")
+        except Exception as e:
+            print(f"Error saving articles to JSON: {e}")
+            traceback.print_exc()
+
+if __name__ == "__main__":
+    rss_feeds = {  
     "BBC Politics": "https://feeds.bbci.co.uk/news/politics/rss.xml",
     "CNN Politics": "https://rss.cnn.com/rss/cnn_allpolitics.rss",
     "The Guardian Politics": "https://www.theguardian.com/politics/rss",
@@ -57,7 +105,7 @@ POLITICAL_RSS_FEEDS = {
     "Le Monde Politique": "https://www.lemonde.fr/politique/rss_full.xml",
     "Deutsche Welle Politics": "https://rss.dw.com/rdf/rss-en-all",
     "El País Politica": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/politica",
-    "The Moscow Times Politics": "https://www.themoscowtimes.com/rss/news"
+    "The Moscow Times Politics": "https://www.themoscowtimes.com/rss/news",
     "EU Observer Politics": "https://euobserver.com/rss.xml",
     "Brussels Times Politics": "https://www.brusselstimes.com/feed/",
     "The Local Germany Politics": "https://www.thelocal.de/rss",
@@ -171,69 +219,21 @@ POLITICAL_RSS_FEEDS = {
     "Daily Trust Politics (Nigeria)": "https://www.dailytrust.com.ng/rss/politics.xml",
     "RT Politics (Russia)": "https://www.rt.com/rss/",
     "TASS Politics": "https://tass.com/rss/v2.xml",
-}
+    }
 
-POLITICAL_KEYWORDS = [
-    "politics", "government", "democracy", "governance", "public policy", "election", 
-    "political party", "campaign", "voting", "referendum", "debate", "legislation",
-    "constitution", "reform", "president", "prime minister", "congress", "parliament",
-    "senator", "governor", "mayor", "house of representatives", "law enforcement",
-    "gun control", "climate policy", "foreign affairs", "diplomacy", "NATO", "United Nations",
-    "treaty", "sanctions", "military alliance", "geopolitics", "corruption", "political scandal",
-    "populism", "fascism", "communism", "socialism", "capitalism", "left-wing", "right-wing",
-    "liberalism", "conservatism", "civil rights", "human rights", "media bias", "disinformation",
-    "fake news", "press freedom", "protest", "activism", "strike", "civil disobedience",
-    "social justice", "feminism", "racial justice", "LGBTQ+ rights"
-]
+    political_keywords = [
+        "politics", "government", "democracy", "governance", "public policy", "election", 
+        "political party", "campaign", "voting", "referendum", "debate", "legislation",
+        "constitution", "reform", "president", "prime minister", "congress", "parliament",
+        "senator", "governor", "mayor", "house of representatives", "law enforcement",
+        "gun control", "climate policy", "foreign affairs", "diplomacy", "NATO", "United Nations",
+        "treaty", "sanctions", "military alliance", "geopolitics", "corruption", "political scandal",
+        "populism", "fascism", "communism", "socialism", "capitalism", "left-wing", "right-wing",
+        "liberalism", "conservatism", "civil rights", "human rights", "media bias", "disinformation",
+        "fake news", "press freedom", "protest", "activism", "strike", "civil disobedience",
+        "social justice", "feminism", "racial justice", "LGBTQ+ rights"
+    ]
 
-def fetch_political_articles():
-    all_articles = []
-    count = 0
-
-    for source, url in POLITICAL_RSS_FEEDS.items():
-        try:
-            print(f"Fetching RSS feed from: {url}")
-            feed = feedparser.parse(url)
-
-            # Check if feed was successfully parsed
-            if not feed.entries:
-                print(f"Warning: No entries found for {source}. Skipping.")
-                continue
-
-            for entry in feed.entries[:10]:  # Limit to 10 articles per source
-                try:
-                    title = entry.get("title", "No title").strip()
-                    link = entry.get("link", "#")
-                    summary = entry.get("summary", "No summary available").strip()
-
-                    # Check if title or summary contains political keywords
-                    if any(keyword in title.lower() or keyword in summary.lower() for keyword in POLITICAL_KEYWORDS):
-                        article = {
-                            "source": source,
-                            "title": title,
-                            "link": link,
-                            "summary": summary
-                        }
-                        all_articles.append(article)
-                        count += 1
-                        print(f"Collected {count} articles so far...")
-
-                except Exception as entry_error:
-                    print(f"Error processing an article from {source}: {entry_error}")
-                    traceback.print_exc()
-
-        except Exception as feed_error:
-            print(f"Error fetching/parsing RSS feed from {source}: {feed_error}")
-            traceback.print_exc()
-
-    # Save articles to JSON file
-    try:
-        with open("political_news_rss.json", "a", encoding="utf-8") as f:
-            json.dump(all_articles, f, ensure_ascii=False, indent=4)
-        print(f"Scraped {len(all_articles)} political news articles and saved to 'political_news_rss.json'.")
-    except Exception as file_error:
-        print(f"Error saving articles to JSON: {file_error}")
-        traceback.print_exc()
-
-# Run the scraper
-fetch_political_articles()
+    scraper = RSSscraper(rss_feeds, political_keywords)
+    scraper.fetch_articles()
+    scraper.save_articles()

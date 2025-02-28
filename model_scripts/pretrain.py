@@ -10,7 +10,7 @@ from llm2vec.models import LlamaBiModel
 from dataloader import BiasDataset, custom_collate_fn
 
 
-def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./train_scripts/pretrain_results', num_train_epochs=3, batch_size=1):
+def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./model_scripts/pretrain_results', num_train_epochs=3, batch_size=1):
     '''
     Pretraining.
     '''
@@ -59,4 +59,4 @@ def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./trai
 
 
 if __name__=='__main__':
-    pretrain_model(data_dir='./train_scripts\dataset\clean_with_scores.json')
+    pretrain_model(data_dir='./model_scripts\dataset\clean_with_scores.json')

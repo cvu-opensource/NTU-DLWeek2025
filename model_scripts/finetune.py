@@ -8,7 +8,7 @@ from transformers import DataCollatorWithPadding
 from transformers import pipeline
 from transformers import Trainer
 from transformers import TrainingArguments
-from peft import get_peft_modelx
+from peft import get_peft_model
 from peft import LoraConfig
 from peft import TaskType
 
@@ -40,7 +40,7 @@ def classify_sample(sample, num_sentences=3, bias_threshold=0.5):
     }
 
 
-def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./finetune/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
+def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./model_scripts/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
     '''
     Fine-tuning function with PEFT.
     '''
@@ -58,7 +58,7 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
 
     # Defining dataset split and dataloaders
     analyzer = None  # or None
-    dataset = BiasDataset(data_dir, tokenizer, analyzer=analyzer, max_length=512)
+    dataset = BiasDataset(data_dir, tokenizer, max_length=512)
     
     eval_len = int(max(1, (1 - split_ratio) * len(dataset)))
     train_data, eval_data = random_split(dataset, [len(dataset.data) - eval_len, eval_len], generator=torch.Generator())
@@ -66,6 +66,10 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
     eval_dataloader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn)
 
+    # for batch in train_dataloader:
+    #     print(batch['input_ids'].shape)  # Currently exists as (batch size, sequence length)
+    #     print(batch['attention_mask'].shape)
+    
     # Apply LoRA using PEFT
     lora_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
@@ -111,4 +115,4 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
 
 
 if __name__=='__main__':
-    finetune_model(data_dir='./train_scripts\dataset\clean_with_scores.json')
+    finetune_model(data_dir='./model_scripts\dataset\clean_with_scores.json')

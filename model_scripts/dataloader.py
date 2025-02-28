@@ -24,7 +24,7 @@ def custom_collate_fn(batch):
 
 
 class BiasDataset(Dataset):
-    def __init__(self, root, tokenizer, analyzer=None, max_length=512):
+    def __init__(self, root, tokenizer, transforms=None, max_length=512):
         """
         Args:
             data (list of dicts): Each dict contains {'text': str, 'labels': dict}.
@@ -33,7 +33,7 @@ class BiasDataset(Dataset):
         """
         self.root = root
         self.tokenizer = tokenizer
-        self.analyzer = analyzer
+        self.transforms = transforms
         self.max_length = max_length
 
         self.extract_data()
@@ -84,8 +84,8 @@ class BiasDataset(Dataset):
         text = item['text']
 
         # Analayser
-        if self.analyzer:
-            analysis = self.analyzer(text)
+        if self.transforms:
+            transformed_text = self.transforms(text)
 
         labels = {'bias_score': item['score']}  # Dictionary of multi-dimensional bias attributes
         

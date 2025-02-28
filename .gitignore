@@ -3,3 +3,6 @@ __pycache__
 *.json
 *Llama-encoder-1.0B
 *yelp_review_full
+*finetune
+*.pth
+*.pt

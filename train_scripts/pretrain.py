@@ -15,19 +15,21 @@ def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./fine
     Pretraining.
     '''
     model = LlamaBiModel.from_pretrained(model_name)
+    model.config.pad_token_id = model.config.eos_token_id
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
     print('model loaded')
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
     # Defining dataset split and dataloaders
     dataset = BiasDataset(data_dir, tokenizer, max_length=512)
     # TODO: idk what to do here lol, underneath is the original code
     # train_data, eval_data = random_split(dataset.data, [len(dataset.data) - eval_len, eval_len], generator=torch.Generator())
-    train_data, _ = random_split(dataset.data, [len(dataset.data) - 2, 2], generator=torch.Generator())
+    # train_data, _ = random_split(dataset.data, [len(dataset.data) - 2, 2], generator=torch.Generator())
 
-    train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
+    train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
 
     optimizer = AdamW(model.parameters(), lr=5e-5)
     num_epochs = 3

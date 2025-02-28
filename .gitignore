@@ -1,4 +1,6 @@
 political_news_rss.json
 scraped_news.json
+*.jpg
+*.zip
 
 venv

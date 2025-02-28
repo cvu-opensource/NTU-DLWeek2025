@@ -3,6 +3,25 @@ import json
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 
+
+def custom_collate_fn(batch):
+    """
+    Custom collate function to handle batching of data with multi-dimensional labels.
+    """
+    # Extract input_ids and attention_mask from the batch
+    input_ids = torch.stack([item['input_ids'] for item in batch])
+    attention_mask = torch.stack([item['attention_mask'] for item in batch])
+    
+    # Handle labels (assumes each label is a tensor of the same size)
+    labels = torch.stack([item['labels'] for item in batch])
+    
+    # Return a batch containing padded input_ids, attention_mask, and labels
+    return {
+        'input_ids': input_ids,
+        'attention_mask': attention_mask,
+        'labels': labels
+    }
+
 class BiasDataset(Dataset):
     def __init__(self, root, tokenizer, max_length=512):
         """

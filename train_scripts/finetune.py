@@ -3,36 +3,17 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
 from peft import get_peft_model, LoraConfig, TaskType
 
-from dataloader import BiasDataset
+from dataloader import BiasDataset, custom_collate_fn
 
 
-def custom_collate_fn(batch):
-    """
-    Custom collate function to handle batching of data with multi-dimensional labels.
-    """
-    # Extract input_ids and attention_mask from the batch
-    input_ids = torch.stack([item['input_ids'] for item in batch])
-    attention_mask = torch.stack([item['attention_mask'] for item in batch])
-    
-    # Handle labels (assumes each label is a tensor of the same size)
-    labels = torch.stack([item['labels'] for item in batch])
-    
-    # Return a batch containing padded input_ids, attention_mask, and labels
-    return {
-        'input_ids': input_ids,
-        'attention_mask': attention_mask,
-        'labels': labels
-    }
-
-def fine_tune_model(data_dir, model_name='bert-base-uncased', output_dir='./finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
+def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./finetune/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
     '''
     Fine-tuning function with PEFT
     '''
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = torch.device(device)
-    print(f"Using device: {device}")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
     
-    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     data_collator = DataCollatorWithPadding(tokenizer, padding=True, return_tensors='pt')
 
     # Defining dataset split and dataloaders
@@ -90,4 +71,4 @@ def fine_tune_model(data_dir, model_name='bert-base-uncased', output_dir='./fine
 
 
 if __name__=='__main__':
-    fine_tune_model('./finetune\dataset\clean_with_scores.json')
+    finetune_model(data_dir='./finetune\dataset\clean_with_scores.json')

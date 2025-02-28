@@ -1,35 +1,40 @@
-// chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-//     if (request.action === "send_json") {
-//         fetch("http://127.0.0.1:5000/analyze", {  // Change to your API URL
-//             method: "POST",
-//             headers: { "Content-Type": "application/json" },
-//             body: request.data
-//         })
-//         .then(response => response.json())
-//         .then(data => console.log("API Response:", data))
-//         .catch(error => console.error("Error:", error));
-//     }
-// });
-
-function downloadJsonFile(jsonData) {
-    try {
-        let blob = new Blob([jsonData], { type: "application/json" });
-        let url = URL.createObjectURL(blob);
-        let a = document.createElement("a");
-        a.href = url;
-        a.download = "scraped_article.json";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error("Download failed:", error);
-    }
+function createContextMenu() {
+    chrome.contextMenus.removeAll(() => {
+        chrome.contextMenus.create({
+            id: "scrapeSelection",
+            title: "Scrape Selected Text",
+            contexts: ["selection"]
+        });
+    });
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "send_json") {
-        console.log("Received scraped text:", request.data);
-        downloadJsonFile(request.data);
+chrome.runtime.onInstalled.addListener(() => {
+    console.log("Extension installed - setting up context menu...");
+    createContextMenu();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+    console.log("Service worker started - ensuring context menu exists...");
+    createContextMenu();
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "scrapeSelection" && info.selectionText) {
+        console.log("Selected text scraped (background service worker):", info.selectionText);
+
+        // Execute script in tab to get the article title
+        chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: (selectedText) => {
+                let title = document.title || "Untitled Article";
+                let jsonData = {
+                    title: title,
+                    text: selectedText
+                };
+
+                console.log("Selected Text Scraped (JSON):", JSON.stringify(jsonData, null, 2));
+            },
+            args: [info.selectionText]
+        });
     }
 });

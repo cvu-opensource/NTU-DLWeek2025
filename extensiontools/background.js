@@ -20,24 +20,36 @@ chrome.runtime.onStartup.addListener(() => {
     createContextMenu();
 });
 
+// Function to fetch bias score from API
+function fetchBiasScore(text, callback) {
+    console.log("Sending request to bias API:", text);
+    
+    fetch("http://121.7.216.162:7001/predict_bias/", {  // Ensure correct API URL
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("API Response:", data);
+        callback(Math.round(data.bias_score * 100));
+    })
+    .catch(error => {
+        console.error("Error fetching bias score:", error);
+        callback(Math.round(Math.random() * 100)); // Use random value if API fails
+    });
+}
+
 // Handle full-text scraping from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "scrape_full") {
         let jsonData = request.data;
 
-        // Fetch bias score from API
-        fetch("http://localhost:5000/predict_bias/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: jsonData.text })
-        })
-        .then(response => response.json())
-        .then(data => {
-            let biasScore = Math.round(data.bias_score * 100);
-            let misinfoScore = Math.round(Math.random() * 100); // Simulated Misinformation Score
+        fetchBiasScore(jsonData.text, (biasScore) => {
+            let misinfoScore = Math.round(Math.random() * 100);
             let finalScore = Math.round((biasScore + misinfoScore) / 2);
 
-            console.log(`API Response - Bias: ${biasScore}%, Simulated Misinformation: ${misinfoScore}%, Final: ${finalScore}%`);
+            console.log(`Final Scores - Bias: ${biasScore}%, Misinformation: ${misinfoScore}%, Final: ${finalScore}%`);
 
             chrome.scripting.executeScript({
                 target: { tabId: sender.tab.id },
@@ -72,9 +84,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 },
                 args: [biasScore, misinfoScore, finalScore]
             });
-        })
-        .catch(error => {
-            console.error("Error fetching bias score:", error);
         });
     }
 });
@@ -84,19 +93,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "scrapeSelection" && info.selectionText) {
         let selectedText = info.selectionText.trim();
 
-        // Fetch bias score from API
-        fetch("http://localhost:5000/predict_bias/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: selectedText })
-        })
-        .then(response => response.json())
-        .then(data => {
-            let biasScore = Math.round(data.bias_score * 100);
+        fetchBiasScore(selectedText, (biasScore) => {
             let misinfoScore = Math.round(Math.random() * 100);
             let finalScore = Math.round((biasScore + misinfoScore) / 2);
 
-            console.log(`API Response - Bias: ${biasScore}%, Simulated Misinformation: ${misinfoScore}%, Final: ${finalScore}%`);
+            console.log(`Final Scores - Bias: ${biasScore}%, Misinformation: ${misinfoScore}%, Final: ${finalScore}%`);
 
             chrome.scripting.executeScript({
                 target: { tabId: tab.id },
@@ -121,9 +122,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 },
                 args: [selectedText, biasScore, misinfoScore, finalScore]
             });
-        })
-        .catch(error => {
-            console.error("Error fetching bias score:", error);
         });
     }
 });

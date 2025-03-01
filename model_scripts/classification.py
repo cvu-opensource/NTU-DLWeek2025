@@ -21,10 +21,7 @@ class ClassificationWrapper(nn.Module):
         logits = outputs.logits
         scores = self.softmax(logits)
         labels = kwargs['labels']
-        # print('scores', scores)
-        # print('labels', labels)
         loss = self.loss(scores, labels)
-        # print('loss', loss)
         return {
             'loss': loss,
         }
@@ -37,6 +34,5 @@ class ClassificationWrapper(nn.Module):
         outputs = self.peft_model(*args, **kwargs)
         logits = outputs.logits
         scores = self.softmax(logits)
-        print('scores', scores)
-        return scores[:, 0]  # wow! amazing!
+        return scores[:, 0]
     

@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from peft import PeftModel
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from model_scripts.classification import ClassificationWrapper
+from models.classification import ClassificationWrapper
 
 app = FastAPI()
 # RUN USING WINDOWS!! I HATE WSL !!!

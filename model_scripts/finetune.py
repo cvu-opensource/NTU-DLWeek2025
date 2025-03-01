@@ -10,7 +10,7 @@ from transformers import TrainingArguments
 from peft import get_peft_model
 from peft import LoraConfig
 from peft import TaskType
-from classification import ClassificationWrapper
+from models.classification import ClassificationWrapper
 from dataloader import BiasDataset, custom_collate_fn
 
 

@@ -26,9 +26,9 @@ class CLR(nn.Module):
             - batch: Dictionary from dataloader of structure:  
                 {
                     'input_ids': dict of 2-dim tensors e.g {
-                        'anchor': (N,D), 
-                        'positive': (N,D), 
-                        'negative': (M,D)
+                        'original_text': (N,D), 
+                        'paraphrased': (N,D), 
+                        'biased_text': (M,D)
                     },
                         
                     'attention_mask': same shape as input_ids.

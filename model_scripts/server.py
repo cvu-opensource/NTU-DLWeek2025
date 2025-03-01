@@ -5,7 +5,7 @@ from peft import PeftModel
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-from classification import ClassificationWrapper
+from models.classification import ClassificationWrapper
 
 app = FastAPI()
 

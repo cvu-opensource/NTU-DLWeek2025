@@ -1,19 +1,33 @@
 import sys
 
 sys.path.insert(0, '.')
-
+from clrdata import CLRDataset
 from models.clr import CLR
+# from models.clr import clr_collate
 from llm2vec.models import LlamaBiModel
 from transformers import AutoTokenizer
-from torch.utils.data import DataLoader, random_split
 from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification
-from transformers import get_scheduler
-from torch.optim import AdamW   
 import torch
-from tqdm.auto import tqdm
 
-from dataloader import BiasDataset, custom_collate_fn, TransformModule
+from dataloader import BiasDataset, TransformModule
 
+
+def clr_collate(batch):
+    flattened_dict = {}
+    print(batch)
+    for outer_key in batch[0]:
+    # For each outer key, iterate over the inner keys (e.g., 'c', 'd')
+        print('outerkey', outer_key, batch[0][outer_key].shape)
+        for inner_key in batch[0][outer_key]:
+            # Create a new combined key (e.g., 'a_c', 'a_d')
+            combined_key = f"{outer_key}_{inner_key}"
+            print(combined_key)
+            print([d[outer_key][inner_key].shape for d in batch])
+            # Stack the tensors corresponding to this combined key across all dictionaries
+            flattened_dict[combined_key] = torch.stack([d[outer_key][inner_key] for d in batch], dim=0)
+            print(flattened_dict[combined_key].shape)
+
+    return flattened_dict
 
 def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./model_scripts/pretrain_results', num_train_epochs=3, batch_size=1):
     '''
@@ -32,14 +46,14 @@ def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
     # Defining dataset split and dataloaders
-    transforms = TransformModule(
-        model_name='gpt2',
-        max_length=2048,
-        bias_threshold=0.5,
-        negative_samples=2,
-        positive_samples=1,
-    )
-    dataset = BiasDataset(data_dir, tokenizer, max_length=512, transforms=transforms)
+    # transforms = TransformModule(
+    #     model_name='gpt2',
+    #     max_length=2048,
+    #     bias_threshold=0.5,
+    #     negative_samples=2,
+    #     positive_samples=1,
+    # )
+    dataset = CLRDataset(data_dir, tokenizer, max_length=512)
     # train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
 
     # Defining training args
@@ -65,7 +79,7 @@ def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
         args=training_args,
         train_dataset=dataset,
         tokenizer=tokenizer,
-        data_collator=custom_collate_fn,
+        data_collator=clr_collate,
     )
 
     trainer.train()
@@ -76,4 +90,4 @@ def pretrain_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
 
 if __name__=='__main__':
     # before you run this pull the requisite model 
-    pretrain_model(data_dir='model_scripts/datasets/clean_with_scores.json', batch_size=5)
+    pretrain_model(data_dir='model_scripts/processed_dataset/clean_with_scores.json', batch_size=5)

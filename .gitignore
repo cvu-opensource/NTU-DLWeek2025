@@ -6,3 +6,6 @@ __pycache__
 *finetune
 *.pth
 *.pt
+*DeepSeek-R1-Distill-Llama-8B
+*DeepSeek-R1-Distill-Qwen-1.5B
+*gpt2

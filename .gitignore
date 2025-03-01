@@ -9,3 +9,4 @@ __pycache__
 *DeepSeek-R1-Distill-Qwen-1.5B
 *gpt2
 finetune_results
+*winvenv

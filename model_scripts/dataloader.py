@@ -15,11 +15,11 @@ def custom_collate_fn(batch):
     """
     # print('batch entering collate_fn', batch)
     # Extract input_ids and attention_mask from the batch
-    input_ids = torch.stack([item['input_ids'] for item in batch])
-    attention_mask = torch.stack([item['attention_mask'] for item in batch])
+    input_ids = torch.stack([item['input_ids'] for item in batch], dim=0)
+    attention_mask = torch.stack([item['attention_mask'] for item in batch], dim=0)
     
     # Handle labels (assumes each label is a tensor of the same size)
-    labels = torch.stack([item['labels'] for item in batch])
+    labels = torch.stack([item['labels'] for item in batch], dim=0)
     
     # Return a batch containing padded input_ids, attention_mask, and labels
     return {
@@ -233,8 +233,6 @@ class BiasDataset(Dataset):
         # Analayser
         if self.transforms:
             transformed_text = self.transforms(text)
-
-        labels = {'bias_score': item['score']}  # Dictionary of multi-dimensional bias attributes
         
         # Tokenize text
         encoding = self.tokenizer(
@@ -245,8 +243,12 @@ class BiasDataset(Dataset):
             return_tensors='pt'
         )
         
-        # Convert labels dict to tensor
-        label_tensor = torch.tensor(list(labels.values()), dtype=torch.float32)
+        score = item['score'] / 100
+        assert score <= 100, 'CONTACT SKYLER'
+
+        # Convert label to 2 elements. Hardcoded. Yay! So we can softmax later.
+        label_tensor = torch.tensor([score, 1 - score], dtype=torch.float32)
+        # print('labels! yay!', label_tensor)
         return {
             'input_ids': encoding['input_ids'].squeeze(0),  # ensure this is 2-dim
             'attention_mask': encoding['attention_mask'].squeeze(0),  # 2-dim also

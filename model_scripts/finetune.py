@@ -101,11 +101,9 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
             return_tensors='pt'
         ).to(device)
         with torch.no_grad():
-            scores = model.infer(**encoding)
-            print('final scores', scores)
-            # print('')
-
+            scores = model.infer(**encoding).item()
+            print(test, scores)
 
 
 if __name__=='__main__':
-    model = finetune_model(data_dir='/mnt/e/NTU-DLWeek2025/model_scripts/datasets/clean_with_scores.json', output_dir='./finetune_results', num_train_epochs=1, batch_size=2)
+    model = finetune_model(data_dir='./dataset/clean_with_scores.json', output_dir='./finetune_results', num_train_epochs=1, batch_size=2)

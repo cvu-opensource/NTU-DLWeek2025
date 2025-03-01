@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from peft import PeftModel
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from model_scripts.classification import ClassificationWrapper
+from models.classification import ClassificationWrapper
 
 app = FastAPI()
 # RUN USING WINDOWS!! I HATE WSL !!!
@@ -13,7 +13,11 @@ MODEL_NAME = 'Llama-encoder-1.0B'
 CHECKPOINT_PATH = r'E:\NTU-DLWeek2025\finetune_results\checkpoint-91'
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+tokenizer.pad_token = tokenizer.eos_token  # Use EOS token as padding
+tokenizer.pad_token_id = tokenizer.eos_token_id  # Ensure ID is correctly set
+
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+model.config.pad_token_id = model.config.eos_token_id
 
 # Apply trained adapter modules to basemodel
 with open(fr"{CHECKPOINT_PATH}\adapter_config.json", "r") as f:

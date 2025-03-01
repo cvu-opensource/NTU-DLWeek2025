@@ -23,6 +23,96 @@ def custom_collate_fn(batch):
     }
 
 
+class TransformModule:
+    def __init__(self, model_name='gpt-2', max_length=512, bias_threshold=0.5):
+        """
+        Args:
+        - model_name (str): Model to use as tokenizer and model
+        - max_length (int): Maximum length for padding/truncating sequences
+        - bias_threshold (float): Threshold to classify a sentence as biased
+        """
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.max_length = max_length
+        self.bias_threshold = bias_threshold
+
+    def classify_bias(self, text):
+        """
+        Classifies a sample's biasness based on extracted features
+        """
+        sentences = sample.split(". ")
+        
+        if len(sentences) == 1:
+            selected_sentences = sentences
+        else:
+            selected_sentences = random.sample(sentences, min(num_sentences, len(sentences)))
+        
+        # Load sentiment analysis pipeline (or use a fine-tuned bias detection model)
+        sentiment_analyzer = pipeline("sentiment-analysis")
+        sentiments = sentiment_analyzer(selected_sentences)
+        
+        # Compute a bias score based on sentiment intensity
+        bias_scores = [abs(s["score"]) if s["label"] == "NEGATIVE" else 0 for s in sentiments]
+        avg_bias_score = np.mean(bias_scores)
+        
+        return float(avg_bias_score)
+
+    def generate_sample(self, text):
+        """
+        Generate a more biased (negative) or less biased (positive) version of the input text using a language model
+        """
+        positive_inputs = self.tokenizer("Generate a less biased version of this text: " + text, return_tensors="pt", max_length=self.max_length, truncation=True, padding=True)
+        positive_output = self.model.generate(positive_inputs['input_ids'], max_length=self.max_length, num_return_sequences=1, no_repeat_ngram_size=2)
+        positive_text = self.tokenizer.decode(positive_output[0], skip_special_tokens=True)
+
+        negative_inputs = self.tokenizer("Generate a more biased version of this text: " + text, return_tensors="pt", max_length=self.max_length, truncation=True, padding=True)
+        negative_output = self.model.generate(negative_inputs['input_ids'], max_length=self.max_length, num_return_sequences=1, no_repeat_ngram_size=2)
+        negative_text = self.tokenizer.decode(negative_output[0], skip_special_tokens=True)
+
+        return {
+            'positive': positive_text,
+            'negative': negative_text
+        }
+
+    def hierarchical_representation(self, text):
+        """
+        Create hierarchical representations for scale invariance (e.g., sentence-level, document-level)
+        """
+        return {
+            "word_level": text.split(),
+            "sentence_level": text.split(". "),
+            "document_level": [text]
+        }
+
+    def __call__(self, text):
+        """
+        Main function to call for applying transformations
+        """
+        # Create positive/negative samples
+        samples = self.create_positive_negative_samples(text)
+        encoded_samples = {
+            "positive": self.tokenizer(samples["positive"], truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt"),
+            "negative": self.tokenizer(samples["negative"], truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt")
+        }
+        
+        # Create hierarchical representation
+        hierarchy = self.hierarchical_representation(text)
+        encoded_hierarchy = {
+            "word_level": self.tokenizer(" ".join(hierarchy["word_level"]), truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt"),
+            "sentence_level": self.tokenizer(" ".join(hierarchy["sentence_level"]), truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt"),
+            "document_level": self.tokenizer(hierarchy["document_level"][0], truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt")
+        }
+        
+        # Temporary return format -> TODO: Decide how we want to implement this when loading data
+        transformed_data = {
+            "positive_sample": encoded_samples["positive"],
+            "negative_sample": encoded_samples["negative"],
+            "hierarchical_representation": encoded_hierarchy
+        }
+        
+        return transformed_data
+
+
 class BiasDataset(Dataset):
     def __init__(self, root, tokenizer, transforms=None, max_length=512):
         """

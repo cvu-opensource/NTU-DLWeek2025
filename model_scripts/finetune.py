@@ -15,31 +15,6 @@ from peft import TaskType
 from dataloader import BiasDataset, custom_collate_fn
 
 
-def classify_sample(sample, num_sentences=3, bias_threshold=0.5):
-    """
-    Classifies a sample as biased or not based on extracted features
-    """
-    sentences = sample.split(". ")
-    
-    if len(sentences) == 1:
-        selected_sentences = sentences
-    else:
-        selected_sentences = random.sample(sentences, min(num_sentences, len(sentences)))
-    
-    # Load sentiment analysis pipeline (or use a fine-tuned bias detection model)
-    sentiment_analyzer = pipeline("sentiment-analysis")
-    sentiments = sentiment_analyzer(selected_sentences)
-    
-    # Compute a bias score based on sentiment intensity
-    bias_scores = [abs(s["score"]) if s["label"] == "NEGATIVE" else 0 for s in sentiments]
-    avg_bias_score = np.mean(bias_scores)
-    
-    return {
-        "bias_score": avg_bias_score,
-        "biased": avg_bias_score > bias_threshold
-    }
-
-
 def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./model_scripts/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
     '''
     Fine-tuning function with PEFT.

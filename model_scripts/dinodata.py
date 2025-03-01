@@ -13,50 +13,45 @@ def dino_collate_fn(batch):
     keys, and values are N times size long now.
 
     Args:
-        batch: list of dicts.
+        batch: list of dicts of crops.
         [
             {
-                'global_crops': [
-                    global_crop_tokens_1, global_crop_tokens_2, ...
-                ],  # but N times the size as before see
+                'global_crops': combined_global_crop_tokens,
 
-                'local_crops': [
-                    local_crop_tokens_1, local_crop_tokens_2, ...
-                ],  # but N times the size as before see
+                'local_crops': combined_local_crop_tokens,
             },
             {
-                'global_crops': [
-                    global_crop_tokens_1, global_crop_tokens_2, ...
-                ],  # but N times the size as before see
+                'global_crops': combined_global_crop_tokens,
 
-                'local_crops': [
-                    local_crop_tokens_1, local_crop_tokens_2, ...
-                ],  # but N times the size as before see
+                'local_crops': combined_local_crop_tokens,
             },
             ... N times
         ]
-
+    where combined_ are themselves dictionaries with keys 'input-ids' and 'attention_masking',
+    squashed across however many global/local crops we defined
 
     Returns:
     dictionary of lists:
         {
-            'global_crops': [
-                global_crop_tokens_1, global_crop_tokens_2, ...
-            ],  # but N times the size as before see
+            'global_crops': combined_batchwise_global_crop_tokens,  # so now times N compared to before. new dimension?
 
-            'local_crops': [
-                local_crop_tokens_1, local_crop_tokens_2, ...
-            ],  # but N times the size as before see
+            'local_crops': combined_batchwise_local_crop_tokens,
         }
     """
-    return_dict = defaultdict(list)
-    for dict in batch:
-        for key, value in dict.items():
-            for crop in value:
-                return_dict[key].append(crop)
-                print('return dict key', key, 'crop shape', crop.shape)
 
-    return return_dict
+    flattened_dict = {}
+    for outer_key in batch[0]:
+    # For each outer key, iterate over the inner keys (e.g., 'c', 'd')
+
+        for inner_key in batch[0][outer_key]:
+            # Create a new combined key (e.g., 'a_c', 'a_d')
+            combined_key = f"{outer_key}_{inner_key}"
+
+            # Stack the tensors corresponding to this combined key across all dictionaries
+            flattened_dict[combined_key] = torch.stack([d[outer_key][inner_key] for d in batch])
+            print(flattened_dict[combined_key].shape)
+
+    return flattened_dict
 
 class DINOTransformModule:
     def __init__(
@@ -131,8 +126,8 @@ class DINOTransformModule:
 
         # Calculate the total length of the crop
         crop_length = int(len(text) * (percentage / 100))
-        print(crop_length)
-        print(len(text))
+        # print(crop_length)
+        # print(len(text))
 
         # Ensure crop length is greater than 0
         if crop_length == 0:
@@ -157,39 +152,39 @@ class DinoDataset(BiasDataset):
     Dino demands we crop the input into global and local crops; that will be handled by transform module.
     
     Return:
-            dictionary of lists:
+            dictionary:
             {
-                'global_crops': [
-                    global_crop_tokens_1, global_crop_tokens_2, ...
-                ],
+                'global_crops': combined_global_crop_tokens,
 
-                'local_crops': [
-                    local_crop_tokens_1, local_crop_tokens_2, ...
-                ],
+                'local_crops': combined_local_crop_tokens,
             }
+        where combined_ are themselves dictionaries with keys 'input-ids' and 'attention_masking',
+        squashed across however many global/local crops we defined
     """
     def __getitem__(self, idx):
         '''
         Custom getitem function
         '''
-        return_dict = defaultdict(list)
+        return_dict = {}
         item = self.data[idx]
         text = item['text']
 
-        if len(text) > 0:
+        # im something of a troll myself
+        if len(text) == 0:
+            text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
-            global_local_dict = self.transforms(text)
-            
-            for k, ls in global_local_dict.items():
-                for text in ls:
-                    encoding = self.tokenizer(
-                        text,
-                        truncation=True,
-                        padding='max_length',
-                        max_length=self.max_length,
-                        return_tensors='pt'
-                    )
-                    return_dict[k].append(encoding)
+        global_local_dict = self.transforms(text)
+        
+        for key, ls in global_local_dict.items():
+            encoding = self.tokenizer(
+                ls,
+                truncation=True,
+                padding='max_length',
+                max_length=self.max_length,
+                return_tensors='pt'
+            )
+
+            return_dict[key] = encoding
         
         return return_dict
 
@@ -210,4 +205,5 @@ train_dataloader = DataLoader(dataset, batch_size=3, shuffle=True, collate_fn=di
 
 for batch in train_dataloader:
     pass
+    # print(batch)
     # print("batch", batch)

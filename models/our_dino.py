@@ -60,41 +60,21 @@ class DINOtext(nn.Module):
 
     def forward(self, batch: dict):
         """
-        I was lazy to collate so we collate here lol
-        batch = [
-            {
-                'global_crops': [
-                    global_crop_tokens_1, global_crop_tokens_2, ...
-                ],
-
-                'local_crops': [
-                    local_crop_tokens_1, local_crop_tokens_2, ...
-                ],
-            },
-            {
-                'global_crops': [
-                    global_crop_tokens_1, global_crop_tokens_2, ...
-                ],
-
-                'local_crops': [
-                    local_crop_tokens_1, local_crop_tokens_2, ...
-                ],
-            },
-            ...
-        ], n length list for n batch size
-        
-        And btw each crop_token variable is
+        batch is a dictionary of:
         {
-            'input_ids': encoding['input_ids'].squeeze(0),  # ensure this is 2-dim
-            'attention_mask': encoding['attention_mask'].squeeze(0),  # 2-dim also
-            'labels': label_tensor  # 1-dim tensor (also just 1 value ig)
+            'global_crops_input_ids': torch.Tensor().size = N, C, D (C is crops not channels like in imgs)
+            'global_crops_attention_mask': vice versa
+            'local_crops_input_ids': vice versa
+            'local_crops_attention_mask': vice versa
         }
-
         """
+        global_crops_input_ids = batch['global_crops_input_ids']
+        global_crops_attention_mask = batch['global_crops_attention_mask']
+        self.student(input_ids=global_crops_input_ids, attention_mask=global_crops_attention_mask)
         global_crops = {} # we have N x global_crop samples. encode all at once
         for item in batch:
             for global_crop in item['global_crops']:
-            global_crops.append(item['global_crops'])
+                global_crops.append(item['global_crops'])
         global_crops = torch.stack(global_crops, dim=1)
         print('global_crops input_ids shape:')
         teacher_output = self.teacher(images[:2])  # only the 2 global views pass through the teacher
@@ -274,3 +254,5 @@ class MultiCropWrapper(nn.Module):
             start_idx = end_idx
         # Run the head forward on the concatenated features.
         return self.head(output)
+
+

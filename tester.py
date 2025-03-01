@@ -20,8 +20,8 @@ embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 nli_model = pipeline("text-classification", model="roberta-large-mnli")
 
 # Google Custom Search API credentials
-GOOGLE_API_KEY = "AIzaSyAniu6Sasz5X3cHGrGMZr87gInURrT08L0"
-GOOGLE_CX = "90aa44fa2b12f4722"  # Custom Search Engine ID
+GOOGLE_API_KEY = "api_here"
+GOOGLE_CX = "cx_here"  # Custom Search Engine ID
 
 
 ### **STEP 1: Extract Key Claims & Named Entities from Base Article** ###

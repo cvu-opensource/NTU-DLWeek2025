@@ -72,7 +72,6 @@ def process_text(article):
 
 def search_articles(query, num_results=10):
     """Search Google Custom Search API for news articles related to a given query, excluding base_url."""
-    """Search Google Custom Search API for news articles related to a given query."""
     url = "https://www.googleapis.com/customsearch/v1"
     params = {
         "q": query,

@@ -1,5 +1,5 @@
 @ECHO OFF
-TITLE MODEL
+TITLE CLASSIFIER
 CALL venv\scripts\activate
 CD model_scripts
-uvicorn server:app --reload
+uvicorn server:app --reload --port 7001

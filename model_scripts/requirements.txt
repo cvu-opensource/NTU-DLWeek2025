@@ -6,3 +6,5 @@ peft
 llm2vec
 tqdm
 ollama
+fastapi
+uvicorn

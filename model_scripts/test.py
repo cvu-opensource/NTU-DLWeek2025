@@ -9,7 +9,7 @@ INPUT_DIR = Path("./dataset")
 OUTPUT_DIR = Path("./processed_dataset")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 
 # Load model and tokenizer (change model_name to use different models)
 tokenizer = AutoTokenizer.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0')

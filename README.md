@@ -45,3 +45,5 @@ The extension then **highlights** the analyzed text in different colors to indic
 ## Architecture
 ![Architecture](static/overview.png "Architecture")
 ![Architecture](static/bias_model.png "Architecture")
+
+**Slides link:** https://docs.google.com/presentation/d/17OnTREfq-5hSUgQMGFLgPFfXZcpf0sJpVGRPEqv61yk/edit#slide=id.g3326928b97b_5_105

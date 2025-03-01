@@ -1,13 +1,19 @@
 import torch
 import json
+import random
+import numpy as np
 from torch.utils.data import Dataset
 from pathlib import Path
+from transformers import pipeline
+from ollama import chat
+from ollama import ChatResponse
 
 
 def custom_collate_fn(batch):
     """
     Custom collate function to handle batching of data with multi-dimensional labels.
     """
+    # print('batch entering collate_fn', batch)
     # Extract input_ids and attention_mask from the batch
     input_ids = torch.stack([item['input_ids'] for item in batch])
     attention_mask = torch.stack([item['attention_mask'] for item in batch])
@@ -24,19 +30,26 @@ def custom_collate_fn(batch):
 
 
 class TransformModule:
-    def __init__(self, model_name='gpt-2', max_length=512, bias_threshold=0.5):
+    def __init__(
+            self, 
+            tokenizer,
+            max_length=512,
+            bias_threshold=0.5,
+            negative_samples=5,
+            positive_samples=1,
+        ):
         """
         Args:
-        - model_name (str): Model to use as tokenizer and model
+        - out of desperation, hardcoded to ollama instance.
         - max_length (int): Maximum length for padding/truncating sequences
         - bias_threshold (float): Threshold to classify a sentence as biased
         """
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
         self.max_length = max_length
         self.bias_threshold = bias_threshold
+        self.negative_samples = negative_samples
+        self.positive_samples = positive_samples
 
-    def classify_bias(self, text):
+    def classify_bias(self, sample, num_sentences=5):
         """
         Classifies a sample's biasness based on extracted features
         """
@@ -57,31 +70,66 @@ class TransformModule:
         
         return float(avg_bias_score)
 
-    def generate_sample(self, text):
+    def generate_positive_negative_samples(self, text):
         """
         Generate a more biased (negative) or less biased (positive) version of the input text using a language model
         """
-        positive_inputs = self.tokenizer("Generate a less biased version of this text: " + text, return_tensors="pt", max_length=self.max_length, truncation=True, padding=True)
-        positive_output = self.model.generate(positive_inputs['input_ids'], max_length=self.max_length, num_return_sequences=1, no_repeat_ngram_size=2)
-        positive_text = self.tokenizer.decode(positive_output[0], skip_special_tokens=True)
+        # print('text', text)
+        positive_list = []
+        response: ChatResponse = chat(model='deepseek-r1:8b', messages=[
+        {
+            'role': 'user',
+            'content': 'Why is the sky blue?',
+        },
+        ])
+        print(response['message']['content'])
+        # or access fields directly from the response object
+        print(response.message.content)
+        for i in range(self.positive_samples):
+            response = chat(model='deepseek-r1:8b', messages=[
+                {
+                    'role': 'system',
+                    'content': """
+                        Generate a paraphrase of the following article.
+                    """,
+                },
+                {
+                    'role': 'user',
+                    'content': text,
+                }
+            ])
+            positive_text = response['message']['content']
+            print('positive_text', positive_text)
+            # positive_text = positive_text.split("Generation begins here.")[-1]
+            # print('positive_text', positive_text)
+            positive_list.append(positive_text)
 
-        negative_inputs = self.tokenizer("Generate a more biased version of this text: " + text, return_tensors="pt", max_length=self.max_length, truncation=True, padding=True)
-        negative_output = self.model.generate(negative_inputs['input_ids'], max_length=self.max_length, num_return_sequences=1, no_repeat_ngram_size=2)
-        negative_text = self.tokenizer.decode(negative_output[0], skip_special_tokens=True)
+        negative_list = []
+        for i in range(self.positive_samples):
+            negative_inputs = self.tokenizer("Generate a more biased version of this text: " + text + ". Generation begins here.", return_tensors="pt", max_length=self.max_length, truncation=True, padding=True)
+            negative_output = self.model.generate(negative_inputs['input_ids'], max_length=self.max_length, num_return_sequences=1, no_repeat_ngram_size=2)
+            negative_text = self.tokenizer.decode(negative_output[0], skip_special_tokens=True)
+            print('negative_text', negative_text)
+            # negative_text = negative_text.split("Generation begins here.")[-1]
+            # print('negative_text', negative_text)
+            negative_list.append(negative_text)
 
         return {
-            'positive': positive_text,
-            'negative': negative_text
+            'positive': positive_list,
+            'negative': negative_list
         }
 
     def hierarchical_representation(self, text):
         """
         Create hierarchical representations for scale invariance (e.g., sentence-level, document-level)
         """
+        # return {
+        #     "word_level": text.split(),
+        #     "sentence_level": text.split(". "),
+        #     "document_level": [text]
+        # }
         return {
-            "word_level": text.split(),
-            "sentence_level": text.split(". "),
-            "document_level": [text]
+            "paragraphs": text.split('\n'),
         }
 
     def __call__(self, text):
@@ -89,7 +137,8 @@ class TransformModule:
         Main function to call for applying transformations
         """
         # Create positive/negative samples
-        samples = self.create_positive_negative_samples(text)
+        samples = self.generate_positive_negative_samples(text)
+        print('samples', samples)
         encoded_samples = {
             "positive": self.tokenizer(samples["positive"], truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt"),
             "negative": self.tokenizer(samples["negative"], truncation=True, padding="max_length", max_length=self.max_length, return_tensors="pt")
@@ -153,9 +202,17 @@ class BiasDataset(Dataset):
         '''
         Extracts data from root folder
         '''
-        if Path(self.root).exists():
-            with open(self.root) as file:
-                self.data = json.load(file)
+        path = Path(self.root)
+        if path.exists():
+            if path.is_file():
+                with open(self.root, 'r', encoding='utf-8') as file:
+                    self.data = json.load(file)
+            else:
+                self.data = []
+                for file in path.glob('*.json'):
+                    with open(file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        self.data.extend(data)
         else:
             print(f'Path {self.root} not found')
             self.data = BiasDataset.create_toy_dataset()
@@ -190,7 +247,6 @@ class BiasDataset(Dataset):
         
         # Convert labels dict to tensor
         label_tensor = torch.tensor(list(labels.values()), dtype=torch.float32)
-        
         return {
             'input_ids': encoding['input_ids'].squeeze(0),  # ensure this is 2-dim
             'attention_mask': encoding['attention_mask'].squeeze(0),  # 2-dim also

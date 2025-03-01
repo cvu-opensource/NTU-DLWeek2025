@@ -90,4 +90,4 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
 
 
 if __name__=='__main__':
-    finetune_model(data_dir='./dataset/clean_with_scores.json', output_dir='./finetune_results', num_train_epochs=1, batch_size=1)
+    finetune_model(data_dir='./dataset', output_dir='./finetune_results', num_train_epochs=1, batch_size=1)

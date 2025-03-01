@@ -17,10 +17,11 @@ nlp = spacy.load("en_core_web_sm")
 embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # Load pre-trained NLI model
-nli_model = pipeline("text-classification", model="roberta-large-mnli")
+nli_model = pipeline("text-classification", model="facebook/bart-large-mnli")
+
 
 # Google Custom Search API credentials
-GOOGLE_API_KEY = "api_here"
+GOOGLE_API_KEY = "api_key"
 GOOGLE_CX = "cx_here"  # Custom Search Engine ID
 
 
@@ -83,16 +84,26 @@ def search_articles(query, num_results=10):
         
     except Exception as e:
         None
-    
     return []
 
 def extract_text_from_url(url):
-    """Extracts article text from a given URL."""
+    """Extracts article text from a given URL while filtering out ads and unwanted content."""
     try:
         article = Article(url)
         article.download()
         article.parse()
-        return article.text
+        text = article.text.strip()
+
+        # **Filter criteria**
+        ad_keywords = ["Picks for you", "Sign in", "Subscribe", "Enable notifications", "Cookies", "Advertisement", "Continue reading"]
+        min_text_length = 200  # Ignore very short texts
+
+        # **Check if the article text contains ads or is too short**
+        if any(keyword in text for keyword in ad_keywords) or len(text) < min_text_length:
+            return None
+
+        return text
+
     except Exception as e:
         return None
 
@@ -104,8 +115,7 @@ def fetch_reference_articles(query, base_url):
     retrieved_urls, retrieved_texts = zip(*[(url, text) for url, text in zip(retrieved_urls, retrieved_texts) if text]) if retrieved_texts else ([], [])
     return list(retrieved_urls), list(retrieved_texts)
 
-
-### **STEP 3: Store Articles in a Vector Database** ###
+#step 3
 def generate_embedding(text):
     """Converts article text into an embedding vector."""
     if not text:
@@ -120,54 +130,52 @@ def store_vectors(base_embedding, retrieved_embeddings):
     index.add(all_embeddings)
     return index
 
+def find_similar_articles(index, query_embedding, retrieved_texts, top_k=10):
+    """Finds the top_k most similar articles from FAISS index."""
+    distances, indices = index.search(query_embedding, top_k)
+    similar_articles = [retrieved_texts[i] for i in indices[0] if i < len(retrieved_texts)]
+    return similar_articles
+
 def process_vector_storage(base_text, retrieved_texts):
     """Runs embedding generation & vector database storage."""
     
     base_embedding = generate_embedding(base_text)
     if base_embedding is None:
-        return None
+        return None, None
 
     retrieved_embeddings = [generate_embedding(text) for text in retrieved_texts if text]
     
     if not retrieved_embeddings:
-        return None
+        print("⚠️ No valid retrieved articles for embedding storage.")
+        return None, base_embedding
 
     index = store_vectors(base_embedding, retrieved_embeddings)
 
-    return index
+    return index, base_embedding
 
-
-### **STEP 4: Detect Misinformation Using Similar Articles from FAISS** ###
-### **STEP 4: Detect Misinformation Using Similar Articles from FAISS** ###
-def detect_misinformation(base_claims, retrieved_articles):
-    """Detects contradictions in the most similar retrieved articles using NLI while removing duplicates."""
+#step 4
+def detect_misinformation(base_claims, retrieved_articles, index, base_embedding):
+    """Detects contradictions using only the most relevant retrieved articles."""
     results = []
     contradiction_count = 0
-    valid_comparisons = 0  # Track only high-confidence results
+    valid_comparisons = 0
 
-    # **Filter out None or empty values**
-    base_claims = [claim for claim in base_claims if claim and isinstance(claim, str)]
-    retrieved_articles = list(set(retrieved_articles))  # **Remove duplicate articles**
-    retrieved_articles = [article for article in retrieved_articles if article and isinstance(article, str)]
-
-    if not base_claims or not retrieved_articles:
-        print("❌ No valid claims or articles found.")
-        return 0, []
+    # Find the most similar articles
+    relevant_articles = find_similar_articles(index, base_embedding, retrieved_articles, top_k=3)
 
     for claim in base_claims:
-        for article in retrieved_articles:
+        for article in relevant_articles:  # Only use the most relevant articles
             try:
-                # Proper NLI Input Format
-                premise = article  # The article text
-                hypothesis = f"The article supports the claim: '{claim}'."  # Hypothesis format
+                premise = article  # Retrieved article text
 
                 result = nli_model(premise, truncation=True, max_length=512)
-                
-                # Extract most probable label and confidence score
-                label = result[0]['label']
-                score = round(result[0]['score'], 4)  # Confidence score
 
-                # **Only include results with confidence > 0.75**
+                label = result[0]['label']
+                score = round(result[0]['score'], 4)
+
+                if label == "contradiction":
+                    contradiction_count += 1
+
                 if score >= 0.75:
                     valid_comparisons += 1
                     results.append({
@@ -177,18 +185,13 @@ def detect_misinformation(base_claims, retrieved_articles):
                         "confidence": score
                     })
 
-                    if label == "contradiction":
-                        contradiction_count += 1
-
             except Exception as e:
-                print(f"❌ NLI Model Error for Claim: '{claim}': {e}")
+                None
 
-    # **Calculate Misinformation Score Using Only High-Confidence Results**
     misinformation_score = (contradiction_count / max(1, valid_comparisons)) * 100 if valid_comparisons > 0 else 0
 
     return misinformation_score, results
 
-### **STEP 5: Generate Final Report & Verdict** ###
 ### **STEP 5: Generate Final Report & Verdict** ###
 def generate_final_report(misinformation_score, results):
     """Generates a structured report."""
@@ -224,25 +227,29 @@ def run_misinformation_pipeline(article):
 
     if not retrieved_texts:
         return
-
+    
     #Step 3: Storing in Vector Database
-    index = process_vector_storage(article["text"], retrieved_texts)
+    #index = process_vector_storage(article["text"], retrieved_texts)
+    index, base_embedding = process_vector_storage(article["text"], retrieved_texts)
+
 
     if index is None:
         return
 
     #Step 4: Running Misinformation Detection
-    misinformation_score, results = detect_misinformation(base_claims, retrieved_texts)
 
-    print("\n📌 Final Verdict:", generate_final_verdict(misinformation_score, results))
-
+    misinformation_score, results = detect_misinformation(base_claims, retrieved_texts, index, base_embedding)
+    print(generate_final_verdict(misinformation_score, results))
+    return generate_final_verdict(misinformation_score, results)
 
 
 ### **EXAMPLE RUN** ###
 article_input = {
-    "source": "BBC Politics",
-    "title": "International Development Minister Anneliese Dodds quits over aid cuts",
-    "text": "International Development Minister Anneliese Dodds has resigned over the prime minister's cuts to the aid budget. In a letter to Sir Keir Starmer, Dodds said the cuts to international aid, announced earlier this week to fund an increase in defence spending, would \"remove food and healthcare from desperate people - deeply harming the UK's reputation\". She told the PM she had delayed her resignation until after his meeting with President Trump, saying it was \"imperative that you had a united cabinet behind you as you set off for Washington\". The Oxford East MP, who attended cabinet despite not being a cabinet minister, said it was with \"sadness\" that she was resigning. She said that while Sir Keir had been clear he was not \"ideologically opposed\" to international development, the cuts were \"being portrayed as following in President Trump's slipstream of cuts to USAID\". Ahead of his trip to meet the US president, Sir Keir announced aid funding would be reduced from 0.5% of gross national income to 0.3% in 2027 in order to fund an increase in defence spending. In his reply to Dodds's resignation letter, the prime minister thanked the departing minister for her \"hard work, deep commitment and friendship\". He said cutting aid was a \"difficult and painful decision and not one I take lightly\" adding: \"We will do everything we can...to rebuild a capability on development.\" In her resignation letter, Dodds said she welcomed an increase to defence spending at a time when the post-war global order had \"come crashing down\". She added that she understood some of the increase might have to be paid for by cuts to ODA [overseas development assistance]. However, she expressed disappointment that instead of discussing \"our fiscal rules and approach to taxation\", the prime minister had opted to allow the ODA to \"absorb the entire burden\". She said the cuts would \"likely lead to a UK pull-out from numerous African, Caribbean and Western Balkan nations - at a time when Russia has been aggressively increasing its global presence\". \"It will likely lead to withdrawal from regional banks and a reduced commitment to the World Bank; the UK being shut out of numerous multilateral bodies; and a reduced voice for the UK in the G7, G20 and in climate negotiations.\" The spending cuts mean \u00a36bn less will be spent on foreign aid each year. The aid budget is already used to pay for hotels for asylum seekers in the UK, meaning the actual amount spend on aid overseas will be around 0.15% of gross national income. The prime minister's decision to increase defence spending came ahead of his meeting in Washington - the US president has been critical of European countries for not spending enough on defence and instead relying on American military support. He welcomed the UK's commitment to spend more, but Sir Keir has been attacked by international development charities and some of his own MPs for the move. Dodds held off her announcement until the prime minister's return from Washington, in order not to overshadow the crucial visit, and it was clear she did not want to make things difficult for the prime minister. But other MPs have been uneasy about the decision, including Labour MP Sarah Champion, who chairs the international development committee, who said that cutting the aid budget to fund defence spending is a false economy that would \"only make the world less safe\". Labour MP Diane Abbott, who had been critical of the cuts earlier in the week, said it was \"shameful\" that other ministers had not resigned along with Dodds. Dodds's resignation also highlights that decisions the prime minister feels he has to take will be at odds with some of the views of Labour MPs, and those will add to tensions between the leadership and backbenchers. In a post on X, Conservative leader Kemi Badenoch said: \"I disagree with the PM on many things but on reducing the foreign aid budget to fund UK defence? He's absolutely right. \"He may not be able to convince the ministers in his own cabinet, but on this subject, I will back him.\" However one of her backbenchers - and a former international development minister - Andrew Mitchell backed Dodds, accusing Labour of trying \"disgraceful and cynical actions\". \"Shame on them and kudos to a politician of decency and principle,\" he added. Liberal Democrat international development spokesperson Monica Harding said Dodds had \"done the right thing\" describing the government's position as \"unsustainable. She said it was right to increase defence spending but added that \"doing so by cutting the international aid budget is like robbing Peter to pay Paul\". \"Where we withdraw our aid, it's Russia and China who will fill the vacuum.\" Deputy Prime Minister Angela Rayner said she was \"sorry to hear\" of Dodds's resignation. \"It is a really difficult decision that was made but it was absolutely right the PM and cabinet endorse the PM's actions to spend more money on defence,\" she said. Dodds first became a Labour MP in 2017 when she was elected to represent the Oxford East constituency. Under Jeremy Corbyn's leadership of the Labour Party she served as a shadow Treasury minister and was promoted to shadow chancellor when Sir Keir took over. Following Labour's poor performance in the 2021 local elections, she was demoted to the women and equalities brief. Since July 2024, she has served as international development minister. Dodds becomes the fourth minister to leave Starmer's government, following Louise Haigh, Tulip Siddiq and Andrew Gwynne. Some Labour MPs are unhappy about Tory defector Natalie Elphicke's past comments. The BBC chairman helped him secure a loan guarantee weeks before the then-PM recommended him for the role, a paper says. The minister is accused of using demeaning and intimidating language towards a civil servant when he was defence secretary. Eddie Reeves has been the Conservatives' leader on Oxfordshire County Council since May 2021. Labour chair Anneliese Dodds demands answers over \u00a3450,000 donation from ex-Tory treasurer Sir Ehud Sheleg. Copyright 2025 BBC. All rights reserved.\u00a0\u00a0The BBC is not responsible for the content of external sites.\u00a0Read about our approach to external linking. ",
-    "url": "https://www.bbc.com/news/articles/cpv44982jlgo"
+  "title": "International Development Minister Anneliese Dodds quits over aid cuts",
+  "text": "International Development Minister Anneliese Dodds has resigned over the prime minister's cuts to the aid budget.  In a letter to Sir Keir Starmer, Dodds said the cuts to international aid, announced earlier this week to fund an increase in defence spending, would \"remove food and healthcare from desperate people - deeply harming the UK's reputation\".  She told the PM she had delayed her resignation until after his meeting with President Trump, saying it was \"imperative that you had a united cabinet behind you as you set off for Washington\".",
+  "source": "bbc.com",
+  "author": "None",
+  "published_date": "2025-02-28T17:06:10.619Z"
 }
+
 run_misinformation_pipeline(article_input)

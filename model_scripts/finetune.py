@@ -10,7 +10,7 @@ from transformers import TrainingArguments
 from peft import get_peft_model
 from peft import LoraConfig
 from peft import TaskType
-
+from classification import ClassificationWrapper
 from dataloader import BiasDataset, custom_collate_fn
 
 
@@ -19,7 +19,7 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
     Fine-tuning pretrained model with PEFT
     '''
     # Initialising model, classifier and tokenizer
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)  # 1 for bias and nonbias classes
     model.classifier = torch.nn.Linear(model.config.hidden_size, model.config.num_labels)
     model.classifier.weight.data.normal_(mean=0.0, std=model.config.initializer_range)
     model.classifier.bias.data.zero_()
@@ -69,9 +69,11 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
         save_strategy="epoch",
         eval_steps=None,
         label_names=["labels"],  # Explicitly define label names
+        remove_unused_columns=False,
     )
     
     model.config.use_cache = False
+    model = ClassificationWrapper(model)
 
     # Defining trainer
     trainer = Trainer(
@@ -84,24 +86,23 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
     )
 
     trainer.train()
-    model.save_pretrained(output_dir)
+    model.peft_model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     print("Fine-tuning complete. Model saved at", output_dir)
 
     # testing whether model actually outputs correctly
-    # tests = ['for the sake of testing', 'i think he is a very very bad person', 'he was a well respected person']
-    # for test in tests:
-    #     encoding = tokenizer(
-    #         test,
-    #         truncation=True,
-    #         padding='max_length',
-    #         max_length=512,
-    #         return_tensors='pt'
-    #     ).to(device)
-    #     with torch.no_grad():
-    #         outputs = model(**encoding)
-    #         bias_score = outputs.logits.item()
-    #     print(test, bias_score) 
+    tests = ['for the sake of testing', 'i think he is a very very bad person', 'he was a well respected person']
+    for test in tests:
+        encoding = tokenizer(
+            test,
+            truncation=True,
+            padding='max_length',
+            max_length=512,
+            return_tensors='pt'
+        ).to(device)
+        with torch.no_grad():
+            scores = model.infer(**encoding).item()
+            print(test, scores)
 
 
 if __name__=='__main__':

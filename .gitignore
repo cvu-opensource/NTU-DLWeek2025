@@ -1,4 +1,5 @@
 venv
+.env
 __pycache__
 *Llama-encoder-1.0B
 *yelp_review_full
@@ -9,6 +10,7 @@ __pycache__
 *DeepSeek-R1-Distill-Llama-8B
 *DeepSeek-R1-Distill-Qwen-1.5B
 *gpt2
+*winvenv
 finetune_results
 political_news_rss.json
 political_scraped_news.json
@@ -18,4 +20,3 @@ culture_news_rss.json
 culture_scraped_news.json
 science_news_rss.json
 science_scraped_news.json
-

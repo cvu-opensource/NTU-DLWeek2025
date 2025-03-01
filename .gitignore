@@ -1,5 +1,11 @@
 political_news_rss.json
-scraped_news.json
+political_scraped_news.json
+business_news_rss.json
+business_scraped_news.json
+culture_news_rss.json
+culture_scraped_news.json
+science_news_rss.json
+science_scraped_news.json
 
 *.zip
 

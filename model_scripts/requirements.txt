@@ -1,0 +1,8 @@
+transformers
+datasets
+torch
+info-nce-pytorch
+peft
+llm2vec
+tqdm
+ollama

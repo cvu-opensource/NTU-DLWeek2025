@@ -5,12 +5,11 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 app = FastAPI()
 
-# Load the fine-tuned model and tokenizer -> TODO: Change paths as necessary
-MODEL_PATH = './finetune_results'
-MODEL_NAME = 'bert-base-uncased'
+# Load the fine-tuned model and tokenizer -> TODO: Change paths as necessary as long as 'config.json' exists
+CHECKPOINT_PATH = './finetune_results/checkpoint-3620'
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT_PATH)
+model = AutoModelForSequenceClassification.from_pretrained(CHECKPOINT_PATH)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)

@@ -1,11 +1,9 @@
 import torch
-import random
 import numpy as np
 from torch.utils.data import DataLoader, random_split
 from transformers import AutoTokenizer
 from transformers import AutoModelForSequenceClassification
-from transformers import DataCollatorWithPadding
-from transformers import pipeline
+from transformers import Cache
 from transformers import Trainer
 from transformers import TrainingArguments
 from peft import get_peft_model
@@ -15,24 +13,29 @@ from peft import TaskType
 from dataloader import BiasDataset, custom_collate_fn
 
 
-def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./model_scripts/finetune_results', num_train_epochs=3, batch_size=2, split_ratio=0.9):
+def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./model_scripts/finetune_results', num_train_epochs=50, batch_size=4, split_ratio=0.9):
     '''
-    Fine-tuning function with PEFT.
+    Fine-tuning pretrained model with PEFT
     '''
-    # Initialising tokeniser, model and collator
+    # Initialising model, classifier and tokenizer
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
+    model.classifier = torch.nn.Linear(model.config.hidden_size, model.config.num_labels)
+    model.classifier.weight.data.normal_(mean=0.0, std=model.config.initializer_range)
+    model.classifier.bias.data.zero_()
+
     model.config.pad_token_id = model.config.eos_token_id
+    model.config.use_cache = True  # Ensure caching is enabled
+    model.config.cache_class = Cache  # Explicitly use the new cache class
+
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
+    print("Using device:", device)
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token  # Use EOS token as padding
     tokenizer.pad_token_id = tokenizer.eos_token_id  # Ensure ID is correctly set
 
-    data_collator = DataCollatorWithPadding(tokenizer, padding=True, return_tensors='pt')
-
     # Defining dataset split and dataloaders
-    analyzer = None  # or None
     dataset = BiasDataset(data_dir, tokenizer, max_length=512)
     
     eval_len = int(max(1, (1 - split_ratio) * len(dataset)))
@@ -40,10 +43,6 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn)
     eval_dataloader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn)
-
-    # for batch in train_dataloader:
-    #     print(batch['input_ids'].shape)  # Currently exists as (batch size, sequence length)
-    #     print(batch['attention_mask'].shape)
     
     # Apply LoRA using PEFT
     lora_config = LoraConfig(
@@ -71,7 +70,7 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
         label_names=["labels"],  # Explicitly define label names
     )
     
-    torch.cuda.empty_cache()
+    model.config.use_cache = False
 
     # Defining trainer
     trainer = Trainer(
@@ -85,9 +84,10 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
 
     trainer.train()
     model.save_pretrained(output_dir)
+    model.config.to_json_file(f"{output_dir}/config.json")
     tokenizer.save_pretrained(output_dir)
     print("Fine-tuning complete. Model saved at", output_dir)
 
 
 if __name__=='__main__':
-    finetune_model(data_dir='./model_scripts\dataset\clean_with_scores.json')
+    finetune_model(data_dir='./dataset/clean_with_scores.json', output_dir='./finetune_results', num_train_epochs=1, batch_size=1)

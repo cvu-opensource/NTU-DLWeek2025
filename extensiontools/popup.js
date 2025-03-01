@@ -42,8 +42,6 @@ function extractArticleText() {
 
     console.log("Sending JSON to background:", JSON.stringify(jsonData, null, 2));
 
-    let fakeScore = (Math.random()).toFixed(2); // Generate a simulated API score
-
-    console.log("Simulated API Score:", fakeScore);
-    chrome.runtime.sendMessage({ action: "highlight_full", data: jsonData, score: fakeScore });
+    // Send message to `background.js` to handle API call & highlighting
+    chrome.runtime.sendMessage({ action: "scrape_full", data: jsonData });
 }

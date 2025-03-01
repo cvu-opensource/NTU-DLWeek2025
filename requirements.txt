@@ -1,0 +1,13 @@
+newspaper3k
+spacy
+nltk
+scikit-learn
+google-search-results
+newspaper3k
+sentence-transformers
+faiss-cpu
+numpy
+transformers
+torch
+lxml_html_clean
+

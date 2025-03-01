@@ -7,7 +7,7 @@ class LinkToTextScraper:
     """
     This script takes the links of articles provided in the json file and scrapes them for the text of the article, outputting them in a new json file 
     """
-    def __init__(self, input_file="political_news_rss.json", output_file="scraped_news.json"):
+    def __init__(self, input_file="science_news_rss.json", output_file="science_scraped_news.json"):
         self.input_file = input_file
         self.output_file = output_file
         self.articles = []
@@ -33,6 +33,7 @@ class LinkToTextScraper:
             return {"title": "Failed to retrieve", "text": "Error"}
 
     def scrape_articles(self):
+        count = 0
         for article in self.articles:
             url = article.get("link")
             if url:
@@ -43,6 +44,8 @@ class LinkToTextScraper:
                     "text": scraped_info["text"],
                     "url": url
                 })
+                count += 1
+                print(count, "Count")
                 time.sleep(2)
 
     def save_scraped_data(self):

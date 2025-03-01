@@ -1,4 +1,5 @@
 import torch
+import json
 import numpy as np
 from torch.utils.data import DataLoader, random_split
 from transformers import AutoTokenizer
@@ -60,7 +61,7 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,
         per_device_train_batch_size=batch_size,
-        save_steps=500,
+        save_steps=len(dataset),
         save_total_limit=2,
         logging_dir=f'{output_dir}/logs',
         logging_steps=100,
@@ -84,10 +85,9 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
 
     trainer.train()
     model.save_pretrained(output_dir)
-    model.config.to_json_file(f"{output_dir}/config.json")
     tokenizer.save_pretrained(output_dir)
     print("Fine-tuning complete. Model saved at", output_dir)
 
 
 if __name__=='__main__':
-    finetune_model(data_dir='./dataset', output_dir='./finetune_results', num_train_epochs=1, batch_size=1)
+    finetune_model(data_dir='./dataset', output_dir='./finetune_results', num_train_epochs=20, batch_size=2)

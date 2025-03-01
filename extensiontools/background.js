@@ -24,7 +24,7 @@ chrome.runtime.onStartup.addListener(() => {
 function fetchBiasScore(text, callback) {
     console.log("Sending request to bias API:", text);
     
-    fetch("http://121.7.216.162:7001/predict_bias/", {  // Ensure correct API URL
+    fetch("http://121.7.216.162:7001/predict_bias/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text })
@@ -36,7 +36,7 @@ function fetchBiasScore(text, callback) {
     })
     .catch(error => {
         console.error("Error fetching bias score:", error);
-        callback(Math.round(Math.random() * 100)); // Use random value if API fails
+        callback(Math.round(0)); // Use 0 if API fails
     });
 }
 
@@ -55,9 +55,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 target: { tabId: sender.tab.id },
                 func: (biasScore, misinfoScore, finalScore) => {
                     function getHighlightColor(score) {
-                        if (score <= 30) return "rgba(144, 238, 144, 0.6)"; // Light Green ✅
-                        if (score <= 60) return "rgba(255, 255, 0, 0.6)"; // Yellow ⚠️
-                        return "rgba(255, 99, 71, 0.6)"; // Red ❌
+                        if (score <= 30) return "rgba(144, 238, 144, 0.6)";  
+                        if (score <= 60) return "rgba(255, 255, 0, 0.6)";
+                        return "rgba(255, 99, 71, 0.6)"; 
                     }
 
                     let color = getHighlightColor(finalScore);
@@ -103,9 +103,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 target: { tabId: tab.id },
                 func: (selectedText, biasScore, misinfoScore, finalScore) => {
                     function getHighlightColor(score) {
-                        if (score <= 30) return "rgba(144, 238, 144, 0.6)"; // Light Green ✅
-                        if (score <= 60) return "rgba(255, 255, 0, 0.6)"; // Yellow ⚠️
-                        return "rgba(255, 99, 71, 0.6)"; // Red ❌
+                        if (score <= 30) return "rgba(144, 238, 144, 0.6)";
+                        if (score <= 60) return "rgba(255, 255, 0, 0.6)"; 
+                        return "rgba(255, 99, 71, 0.6)";  
                     }
 
                     let color = getHighlightColor(finalScore);

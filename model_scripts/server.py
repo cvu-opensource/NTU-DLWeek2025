@@ -9,7 +9,7 @@ app = FastAPI()
 
 # Load the fine-tuned model and tokenizer -> TODO: Change paths as necessary as long as 'config.json' exists
 MODEL_NAME = 'Llama-encoder-1.0B'
-CHECKPOINT_PATH = './finetune_results/checkpoint-3620'
+CHECKPOINT_PATH = './saved_results/checkpoint-651'
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
@@ -17,7 +17,7 @@ model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 # Apply trained adapter modules to basemodel
 with open(f"{CHECKPOINT_PATH}/adapter_config.json", "r") as f:
     adapter_config = json.load(f)
-model = PeftModel.from_pretrained(model, f"{CHECKPOINT_PATH}/adapter_model.safetensor", adapter_config)
+model = PeftModel.from_pretrained(model, f"{CHECKPOINT_PATH}", adapter_config=adapter_config)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)

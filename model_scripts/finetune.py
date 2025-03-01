@@ -88,6 +88,21 @@ def finetune_model(data_dir, model_name='Llama-encoder-1.0B', output_dir='./mode
     tokenizer.save_pretrained(output_dir)
     print("Fine-tuning complete. Model saved at", output_dir)
 
+    # testing whether model actually outputs correctly
+    # tests = ['for the sake of testing', 'i think he is a very very bad person', 'he was a well respected person']
+    # for test in tests:
+    #     encoding = tokenizer(
+    #         test,
+    #         truncation=True,
+    #         padding='max_length',
+    #         max_length=512,
+    #         return_tensors='pt'
+    #     ).to(device)
+    #     with torch.no_grad():
+    #         outputs = model(**encoding)
+    #         bias_score = outputs.logits.item()
+    #     print(test, bias_score) 
+
 
 if __name__=='__main__':
-    finetune_model(data_dir='./dataset', output_dir='./finetune_results', num_train_epochs=20, batch_size=2)
+    model = finetune_model(data_dir='./dataset/clean_with_scores.json', output_dir='./finetune_results', num_train_epochs=1, batch_size=2)

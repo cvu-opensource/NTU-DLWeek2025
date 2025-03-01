@@ -253,7 +253,11 @@ def run_misinformation_pipeline(article):
 
 
 class MisinformationRequest(BaseModel):
-    article: str
+    title: str
+    text: str
+    source: str
+    author: str
+    published_date: str
 
 
 @app.post("/detect_misinformation")
@@ -262,7 +266,7 @@ def detect_misinformation(request: MisinformationRequest):
     Calls the main pipeline for misinformation detection
     """
     try:
-        result = run_misinformation_pipeline(request.article)
+        result = run_misinformation_pipeline(dict(request))
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

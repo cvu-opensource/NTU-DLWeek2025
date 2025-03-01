@@ -1,7 +1,7 @@
 {
-  "name": "News Scraper",
+  "name": "High-lie-ter",
   "version": "1.0",
-  "description": "Scrape news articles and send JSON data to an API",
+  "description": "Discover the biasness and misinformation percentages of news articles around the world with DL technologies",
   "manifest_version": 3,
   "permissions": [
     "activeTab",

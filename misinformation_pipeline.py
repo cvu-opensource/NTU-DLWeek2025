@@ -20,8 +20,8 @@ embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 nli_model = pipeline("text-classification", model="roberta-large-mnli")
 
 # Google Custom Search API credentials
-GOOGLE_API_KEY = "api_key_here"
-GOOGLE_CX = "cx_here"  # Custom Search Engine ID
+GOOGLE_API_KEY = "AIzaSyAniu6Sasz5X3cHGrGMZr87gInURrT08L0"
+GOOGLE_CX = "90aa44fa2b12f4722"  # Custom Search Engine ID
 
 
 ### **STEP 1: Extract Key Claims & Named Entities from Base Article** ###
@@ -138,16 +138,20 @@ def process_vector_storage(base_text, retrieved_texts):
 
 
 ### **STEP 4: Detect Misinformation Using Similar Articles from FAISS** ###
+### **STEP 4: Detect Misinformation Using Similar Articles from FAISS** ###
 def detect_misinformation(base_claims, retrieved_articles):
-    """Detects contradictions in the most similar retrieved articles using NLI."""
+    """Detects contradictions in the most similar retrieved articles using NLI while removing duplicates."""
     results = []
     contradiction_count = 0
+    valid_comparisons = 0  # Track only high-confidence results
 
-    # Ensure valid input
+    # **Filter out None or empty values**
     base_claims = [claim for claim in base_claims if claim and isinstance(claim, str)]
+    retrieved_articles = list(set(retrieved_articles))  # **Remove duplicate articles**
     retrieved_articles = [article for article in retrieved_articles if article and isinstance(article, str)]
 
     if not base_claims or not retrieved_articles:
+        print("❌ No valid claims or articles found.")
         return 0, []
 
     for claim in base_claims:
@@ -159,24 +163,29 @@ def detect_misinformation(base_claims, retrieved_articles):
 
                 result = nli_model(premise, truncation=True, max_length=512)
                 
-                # Extract most probable label
+                # Extract most probable label and confidence score
                 label = result[0]['label']
                 score = round(result[0]['score'], 4)  # Confidence score
 
-                results.append({
-                    "claim": claim,
-                    "retrieved_article_snippet": article[:150] + "...",
-                    "classification": label,
-                    "confidence": score
-                })
+                # **Only include results with confidence > 0.75**
+                if score >= 0.75:
+                    valid_comparisons += 1
+                    results.append({
+                        "claim": claim,
+                        "retrieved_article_snippet": article[:150] + "...",
+                        "classification": label,
+                        "confidence": score
+                    })
 
-                if label == "contradiction":
-                    contradiction_count += 1
+                    if label == "contradiction":
+                        contradiction_count += 1
 
             except Exception as e:
-                None
+                print(f"❌ NLI Model Error for Claim: '{claim}': {e}")
 
-    misinformation_score = (contradiction_count / max(1, len(results))) * 100
+    # **Calculate Misinformation Score Using Only High-Confidence Results**
+    misinformation_score = (contradiction_count / max(1, valid_comparisons)) * 100 if valid_comparisons > 0 else 0
+
     return misinformation_score, results
 
 ### **STEP 5: Generate Final Report & Verdict** ###

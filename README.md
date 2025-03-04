@@ -101,3 +101,17 @@ uvicorn server:app --reload --port 7002
 <img src="static/ui_selection.png" alt="User selection" width="700">
 
 <img src="static/ui_highlight.png" alt="Service returns" width="700">
+
+<br>
+
+---
+---
+
+### Contributors
+
+| Name            | Tasks                          | GitHub Profile                        | LinkedIn Profile                       |
+|-----------------|-------------------------------|---------------------------------------|----------------------------------------|
+| **Gerard Lum**   | Fine-tuning, APIs      | [https://github.com/gerardlke](https://github.com/gerardlke) | [https://www.linkedin.com/in/gerardlumkaien/](https://www.linkedin.com/in/gerardlumkaien/) |
+| **Benjamin Goh** | Pre-training, ML expert   | [https://github.com/checkpoint214159](https://github.com/checkpoint214159) | [https://www.linkedin.com/in/benjamin-goh-45a0a7307/](https://www.linkedin.com/in/benjamin-goh-45a0a7307/) |
+| **Yeo You Ming**   | Web extention, UI, Web scraper  | [https://github.com/Forfeit-15](https://github.com/Forfeit-15) | [https://www.linkedin.com/in/yeo-you-ming-5b10852aa/](https://www.linkedin.com/in/yeo-you-ming-5b10852aa/) |
+| **Skyler Lee**    | Misinformation detection | [https://github.com/N1sh0](https://github.com/N1sh0) | [https://www.linkedin.com/in/skyler-lee-zhan-bin/](https://www.linkedin.com/in/skyler-lee-zhan-bin/) |
